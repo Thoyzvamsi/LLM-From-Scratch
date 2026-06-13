@@ -8,7 +8,7 @@ class Tokenization:
 
     # -- Encoding to Tokens --
     def encoding(self,context_letters):
-        encoded_numbers = []
+        tokens = []
         for letter in context_letters:
             num = self.chars.index(letter)
             tokens.append(num)
@@ -19,5 +19,5 @@ class Tokenization:
     def decoding(self,context_numbers):
         decoded_text = ""
         for number in context_numbers:
-            encoded_text = "".join(self.chars[number])
-        return encoded_text
+            decoded_text = decoded_text+self.chars[number]
+        return decoded_text
