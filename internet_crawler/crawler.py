@@ -1,21 +1,18 @@
 from bs4 import BeautifulSoup as bs
 import requests
 import re
-from urllib.parse import urljoin
+from pathlib import Path
+import json
 
 """
- - Basic web scrapper , Enter you'r urls in list in the main function and run the file
-
- # Updates:
- - Use function to recursion rather than the loop
- - Collect Good url set 
-
+ - Basic web scrapper
 """
+
 
 class Crawler:
-    def __init__(self ,path):
+    def __init__(self ,path ,file_urls):
         self.path = path
-        self.crawled = set()
+        self.crawled = set(file_urls)
         self.headers = {
         "User-Agent": "VamsiBot/1.0 (learning project)"
         }
@@ -35,9 +32,11 @@ class Crawler:
             return 
 
         if self.blocked_url_patters(current_url):
-            self.crawled.add(current_url)            
+            self.crawled.add(current_url)       
         
         self.scrapper(current_url)
+
+        return list(self.crawled)
 
         
 
@@ -53,6 +52,7 @@ class Crawler:
         if content:
             text = content.get_text(" ", strip=True)
             text = re.sub(r"[ \t]+", " ", text)
+            text = re.sub(r"[^A-Za-z0-9\s.,!?;:'\"()\-]", "", text)
             text = re.sub(
                 r"[\u200e\u200f\u2028\u2029]",
                 " ",
@@ -60,17 +60,17 @@ class Crawler:
             ) #Replace them with space to prevent errors
 
             print(url)
-            print(text[:500])
-            print("-" * 50)
             print("Text length:", len(text))
             print("Word count:", len(text.split()))
             print("Quality:", self.data_quality_filter(text))
             
-            if len(text) > 1500:
+            if len(text) > 1200:
                 if self.data_quality_filter(text):
                     with open(self.path, "a", encoding="utf-8") as f:
                         f.write(text)  
                         f.write("\n")
+
+
 
     def blocked_url_patters(self,link):
         # Blocks this kind of patterns 
@@ -99,12 +99,12 @@ class Crawler:
             return False
         
         alpha_ratio = sum(c.isalpha() for c in text)/len(text)
-        if alpha_ratio < 0.6:   # "Hello12389" ratio = 5(chars) / 10(whole word) < 0.6
+        if alpha_ratio < 0.5:   # "Hello12389" ratio = 5(chars) / 10(whole word) < 0.6
             return False
         
         sentences = text.split('.')
         uniquness = len(set(sentences))/len(sentences)
-        if uniquness < 0.6:     # Same as the above but for sentences
+        if uniquness < 0.5:     # Same as the above but for sentences
             return False
         
         return True
@@ -112,11 +112,19 @@ class Crawler:
     
 def main():
     urls = []
-    path = "data.txt"
+    data_path = "data.txt"
 
-    Crawl = Crawler(path)
+
+    urls_path = "urls_file.json"
+
+    if not Path("urls_file.json").exists():
+        with open(urls_path, "w") as f:
+            json.dump([], f)
     
-    import requests
+    with open(urls_path,"r") as f:
+        file_urls = json.load(f)
+    
+    Crawl = Crawler(data_path,file_urls)
 
     api_url = "https://en.wikipedia.org/w/api.php"
 
@@ -130,7 +138,7 @@ def main():
     headers = {
         "User-Agent": "VamsiBot/1.0 (learning project)"
     }
-    for i in range(10):
+    for i in range(40):
         response = requests.get(
             api_url,
             params=params,
@@ -152,7 +160,10 @@ def main():
 
 
     for url_in_list in urls:
-        Crawl.crawler(url_in_list)
+        crawled_urls = Crawl.crawler(url_in_list)
+    with open(urls_path, "w") as f:
+        json.dump(list(crawled_urls), f, indent=4)
+    
 
 if __name__ == "__main__":
     main()
