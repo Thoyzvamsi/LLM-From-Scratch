@@ -5,15 +5,28 @@ from data_pipeline.tokenization import Tokenization
 import torch.nn.functional as F
 torch.manual_seed(1337)
 
+# Hyper parameters
+batch_size = 32
+block_size = 8
+max_interations = 450
+lr = 1e-3
+eval_iters = 200
+n_embd = 32
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+tokens = Tokenization()
+text = tokens.text
+vocab_size = len(set(text))
 
 class BigramLanguangeModel(nn.Module):
-    def __init__(self,vocab_size,device="cpu"):
+    def __init__(self):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size,vocab_size)
-        self.device = device
+        self.token_embedding_table = nn.Embedding(vocab_size,n_embd)
+        self.lm_head = nn.Linear(n_embd,vocab_size)
 
     def forward(self, idx, targets=None):
-        logits = self.token_embedding_table(idx) # (B,T,C)
+        tok_embd = self.token_embedding_table(idx) # (B,T,C)
+        logits = self.lm_head(tok_embd) # (B, T, Vocab_size)
 
         if targets is None:
             loss = None
@@ -27,13 +40,13 @@ class BigramLanguangeModel(nn.Module):
     
     @torch.no_grad()
     def generate(self, idx, max_new_tokens):
-        idx = idx.to(self.device)
+        idx = idx.to(device)
         for _ in range(max_new_tokens):
             logits ,loss = self(idx)
             logits = logits[:,-1,:]
             probs = F.softmax(logits,dim=-1)
             idx_next = torch.multinomial(probs,num_samples=1)
-            idx = torch.cat((idx,idx_next),dim=1).to(self.device)
+            idx = torch.cat((idx,idx_next),dim=1).to(device)
         return idx
     
     def optimizer(self,epochs,entire_text):
@@ -41,11 +54,10 @@ class BigramLanguangeModel(nn.Module):
         split = Data_handling()
 
         train_data,val_data = split.data_splitting(entire_text)
-        device = self.device
 
         for epoch in range(epochs):
 
-            xb,yb = split.get_batch(train_data)
+            xb,yb = split.get_batch(train_data,batch_size,block_size)
 
             logits,loss = self(xb,yb)
             optimizer.zero_grad(set_to_none=True)
@@ -61,17 +73,11 @@ class BigramLanguangeModel(nn.Module):
 
 
 def main():
-    tokens = Tokenization()
-    text = tokens.text
-    vocab_size = len(set(text))
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
     encoded_text = tokens.encoding(text).to(device) # Tokenizes the entire file
 
-    m = BigramLanguangeModel(vocab_size , device=device).to(device)
+    m = BigramLanguangeModel().to(device)
 
-    m.optimizer(epochs=60000,entire_text=encoded_text)
+    m.optimizer(max_interations,entire_text=encoded_text)
 
 if __name__ == "__main__" :
     main()
