@@ -1,49 +1,40 @@
 from bs4 import BeautifulSoup as bs
+from data_pipeline.data_handling import Data_handling
 import requests
 import re
 from pathlib import Path
 import json
+import time
 
-"""
- - Basic web scrapper
-"""
-
+ # --- Basic web scrapper for Text data in Wikipedia articles ---
 
 class Crawler:
-    def __init__(self ,path ,file_urls):
+    def __init__(self ,path ,file_urls ,headers):
         self.path = path
         self.crawled = set(file_urls)
-        self.headers = {
-        "User-Agent": "VamsiBot/1.0 (learning project)"
-        }
+        self.headers = headers 
 
     def crawler(self,current_url):
-        """
-          - It only scarpes likes from a particular url
-        """
         try:
-            html = requests.get(current_url, headers=self.headers).text # requesting html
+            # requesting html
+            html = requests.get(current_url, headers=self.headers).text
         except Exception:
-            return "Error in response"
+            print(f"Error in {Exception}")
 
         soup = bs(html,"html.parser")
-
-        if current_url in self.crawled: # checks if Already crawled 
+        # checks if Already crawled 
+        if current_url in self.crawled:
             return 
+        self.crawled.add(current_url)  
 
-        if self.blocked_url_patters(current_url):
-            self.crawled.add(current_url)       
-        
+        # Scrapes the data
         self.scrapper(current_url)
 
         return list(self.crawled)
 
         
-
     def scrapper(self,url):
-
         # --- It appends the text data to data.txt file ---
-
         html = requests.get(url,headers=self.headers).text
 
         soup = bs(html,"html.parser")
@@ -52,70 +43,33 @@ class Crawler:
         if content:
             text = content.get_text(" ", strip=True)
             text = re.sub(r"[ \t]+", " ", text)
-            text = re.sub(r"[^A-Za-z0-9\s.,!?;:'\"()\-]", "", text)
+            text = re.sub(r'[^a-zA-Z0-9\s.,!?\'"-]', '', text) 
+
+            #Replace them with space to prevent errors
             text = re.sub(
                 r"[\u200e\u200f\u2028\u2029]",
                 " ",
                 text
-            ) #Replace them with space to prevent errors
-
+            )
             print(url)
             print("Text length:", len(text))
             print("Word count:", len(text.split()))
-            print("Quality:", self.data_quality_filter(text))
+            print("Quality:", Data_handling().data_quality_filter(text))
             
-            if len(text) > 1200:
-                if self.data_quality_filter(text):
-                    with open(self.path, "a", encoding="utf-8") as f:
-                        f.write(text)  
-                        f.write("\n")
+            if Data_handling().data_quality_filter(text):
+                with open(self.path, "a", encoding="utf-8") as f:
+                    f.write(text)  
+                    f.write("\n")
 
 
-
-    def blocked_url_patters(self,link):
-        # Blocks this kind of patterns 
-
-        blocked_patters = [
-                '/sponsors', '/security', '/solutions',
-                '/resources', '/events', '/customer-stories',
-                '/shop', '/about', '/contact', '/pricing'
-            ]
-        
-        for pattern in blocked_patters:
-            if link.endswith(pattern):
-                return False
-            elif (
-                pattern.startswith("#")
-                or pattern.startswith("javascript:")
-                or pattern.startswith("mailto:")
-            ):
-               return False
-
-        return True
-    
-    # Filter the spam or any inconsistencies
-    def data_quality_filter(self,text):
-        if len(text) < 400 or len(text.split()) < 100:
-            return False
-        
-        alpha_ratio = sum(c.isalpha() for c in text)/len(text)
-        if alpha_ratio < 0.5:   # "Hello12389" ratio = 5(chars) / 10(whole word) < 0.6
-            return False
-        
-        sentences = text.split('.')
-        uniquness = len(set(sentences))/len(sentences)
-        if uniquness < 0.5:     # Same as the above but for sentences
-            return False
-        
-        return True
-        
-    
 def main():
     urls = []
     data_path = "data.txt"
 
-
+    # Enter the number of articles multiplies with 10*10
+    num = 100
     urls_path = "urls_file.json"
+
 
     if not Path("urls_file.json").exists():
         with open(urls_path, "w") as f:
@@ -124,8 +78,6 @@ def main():
     with open(urls_path,"r") as f:
         file_urls = json.load(f)
     
-    Crawl = Crawler(data_path,file_urls)
-
     api_url = "https://en.wikipedia.org/w/api.php"
 
     params = {
@@ -138,18 +90,19 @@ def main():
     headers = {
         "User-Agent": "VamsiBot/1.0 (learning project)"
     }
-    for i in range(40):
+    Crawl = Crawler(data_path,file_urls,headers)
+
+    for i in range(num):
         response = requests.get(
             api_url,
             params=params,
             headers=headers
         )
-
         print(response.status_code)
         data = response.json()
+
         for article in data["query"]["random"]:
             title = article["title"]
-
             url = (
                 "https://en.wikipedia.org/wiki/"
                 + title.replace(" ", "_")
@@ -157,6 +110,10 @@ def main():
             print("Found article:", url)
 
             urls.append(url)
+
+        if i % 10 == 0:
+            time.sleep(5)
+
 
 
     for url_in_list in urls:

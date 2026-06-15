@@ -1,10 +1,10 @@
 import torch
 
 class Tokenization:
-    def __init__(self,text):
-        self.text = text
-        self.chars = sorted(list(set(text)))
-        self.vocab_size = len(set(text))
+    def __init__(self):
+        self.text = open("data.txt",'r').read()
+        self.chars = sorted(list(set(self.text)))
+        self.vocab_size = len(set(self.text))
 
     # -- Encoding to Tokens --
     def encoding(self,context_letters):
