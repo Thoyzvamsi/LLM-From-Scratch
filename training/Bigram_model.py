@@ -7,8 +7,8 @@ torch.manual_seed(1337)
 
 # Hyper parameters
 batch_size = 32
-block_size = 8
-max_interations = 450
+block_size = 16
+max_interations = 20000
 lr = 1e-3
 eval_iters = 200
 n_embd = 32
@@ -22,11 +22,17 @@ class BigramLanguangeModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size,n_embd)
+        self.position_embedding_table = nn.Embedding(vocab_size,n_embd)
+        self.sa_heads = MultiHeadAttension(4,n_embd//4)
         self.lm_head = nn.Linear(n_embd,vocab_size)
 
     def forward(self, idx, targets=None):
+        B ,T = idx.shape 
         tok_embd = self.token_embedding_table(idx) # (B,T,C)
-        logits = self.lm_head(tok_embd) # (B, T, Vocab_size)
+        pos_embd = self.position_embedding_table(torch.arange(T,device=device))
+        x = tok_embd + pos_embd
+        x = self.sa_heads(x)
+        logits = self.lm_head(x) # (B, T, Vocab_size)
 
         if targets is None:
             loss = None
@@ -42,7 +48,8 @@ class BigramLanguangeModel(nn.Module):
     def generate(self, idx, max_new_tokens):
         idx = idx.to(device)
         for _ in range(max_new_tokens):
-            logits ,loss = self(idx)
+            idx_cond = idx[:,-block_size:]
+            logits ,loss = self(idx_cond)
             logits = logits[:,-1,:]
             probs = F.softmax(logits,dim=-1)
             idx_next = torch.multinomial(probs,num_samples=1)
@@ -71,6 +78,35 @@ class BigramLanguangeModel(nn.Module):
         decoded_text = Tokenization().decoding(self.generate(idx, max_new_tokens=200)[0].tolist())
         print(decoded_text)
 
+
+# Self attention block
+class Head(nn.Module):
+    def __init__(self,head_size):
+        super().__init__()
+        self.query = nn.Linear(n_embd ,head_size ,bias=False)
+        self.key = nn.Linear(n_embd ,head_size ,bias=False)
+        self.value = nn.Linear(n_embd ,head_size ,bias=False)
+        self.register_buffer('tril',torch.tril(torch.ones(block_size,block_size)))
+    
+    def forward(self,x):
+        B,T,C = x.shape
+        q = self.query(x) # (B,T,C)
+        k = self.key(x) # (B,T,C)
+        v = self.value(x) # (B,T,C)
+        wei = q @ k.transpose(-2,-1) * C ** -0.5 # (B,T,C) @ (B,C,T) = # (B,T,T)
+        wei = wei.masked_fill(self.tril[:T,:T] == 0 ,float('-inf')) #
+        wei = F.softmax(wei,dim=-1) 
+        out = wei @ v # (B,T,T) @ (B,T,C) = # (B,T,C)
+
+        return out
+    
+class MultiHeadAttension(nn.Module):
+    def __init__(self,num_heads,head_size):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+
+    def forward(self,x):
+        return torch.cat([h(x) for h in self.heads] , dim=-1)
 
 def main():
     encoded_text = tokens.encoding(text).to(device) # Tokenizes the entire file
