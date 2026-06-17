@@ -2,15 +2,15 @@ import torch
 
 class Data_handling:
     def data_splitting(self,data):
-        n = 0.9
+        n = int(0.9 * len(data))
         # -- data splitting -- 
-        train_data = data[:int(len(data)*n)]
-        val_data = data[int(len(train_data)*n) : ]
+        train_data = data[:n]
+        val_data = data[n: ]
 
         return train_data , val_data
     
+    torch.manual_seed(1334)
     def get_batch(self,data,batch_size,block_size):
-        torch.manual_seed(1334)
 
         ix = torch.randint(len(data)-block_size,(batch_size,))
         x = torch.stack([data[i:i+block_size] for i in ix])

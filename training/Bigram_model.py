@@ -13,17 +13,31 @@ lr = 1e-3
 eval_iters = 200
 n_embd = 32
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+eval_interval = 100
 tokens = Tokenization()
 text = tokens.text
 vocab_size = len(set(text))
+
+
+class FeedForward(nn.Module):
+    def __init__(self,n_embd):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd,n_embd),
+            nn.ReLU()
+        )
+
+    def forward(self,x):
+        return self.net(x)
+    
 
 class BigramLanguangeModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size,n_embd)
-        self.position_embedding_table = nn.Embedding(vocab_size,n_embd)
+        self.position_embedding_table = nn.Embedding(block_size,n_embd)
         self.sa_heads = MultiHeadAttension(4,n_embd//4)
+        self.ffwd = FeedForward(n_embd)
         self.lm_head = nn.Linear(n_embd,vocab_size)
 
     def forward(self, idx, targets=None):
@@ -32,6 +46,7 @@ class BigramLanguangeModel(nn.Module):
         pos_embd = self.position_embedding_table(torch.arange(T,device=device))
         x = tok_embd + pos_embd
         x = self.sa_heads(x)
+        x = self.ffwd(x)
         logits = self.lm_head(x) # (B, T, Vocab_size)
 
         if targets is None:
@@ -43,6 +58,28 @@ class BigramLanguangeModel(nn.Module):
             loss = F.cross_entropy(logits,targets)
 
         return logits,loss
+    
+    @torch.no_grad()
+    def loss_function(self,train,val):
+        out = {}
+        self.eval()
+        k = 0
+        for split in [train,val]:
+            losses = torch.zeros(eval_iters)
+            for i in range(eval_iters):
+                X,Y = Data_handling().get_batch(data=split,batch_size=batch_size,block_size=block_size)
+                logits,loss = self(X,Y)
+                losses[i] = loss.item()
+            if k == 0:
+                out['train'] = losses.mean()
+                k = 1
+            else:
+                out['val'] = losses.mean()
+                k = 0
+
+        self.train()
+        return out
+            
     
     @torch.no_grad()
     def generate(self, idx, max_new_tokens):
@@ -60,19 +97,18 @@ class BigramLanguangeModel(nn.Module):
         optimizer = torch.optim.AdamW(self.parameters(),lr=1e-3) # - lr = 0.003
         split = Data_handling()
 
-        train_data,val_data = split.data_splitting(entire_text)
+        train,val = split.data_splitting(entire_text)
 
         for epoch in range(epochs):
-
-            xb,yb = split.get_batch(train_data,batch_size,block_size)
+            if epoch % eval_interval == 0:
+                losses = self.loss_function(train,val)
+                print(f"Train Loss {losses['train']:.4f} and Validation loss {losses['val']:.4f}")
+            xb,yb = split.get_batch(train,batch_size,block_size)
 
             logits,loss = self(xb,yb)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
-
-            if epoch % 100 == 0:
-                print(loss.item())
 
         idx = torch.zeros((1, 1), dtype=torch.long)
         decoded_text = Tokenization().decoding(self.generate(idx, max_new_tokens=200)[0].tolist())
