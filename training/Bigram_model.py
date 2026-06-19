@@ -3,6 +3,7 @@ import torch.nn as nn
 from data_pipeline.data_handling import Data_handling
 from data_pipeline.tokenization import Tokenization
 import torch.nn.functional as F
+import json
 torch.manual_seed(1337)
 
 # Hyper parameters
@@ -10,7 +11,7 @@ batch_size = 64
 block_size = 256
 max_interations = 10000
 lr = 3e-4
-eval_iters = 200
+eval_iters = 100
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_interval = 10
 n_embd = 384
@@ -18,8 +19,9 @@ n_heads = 6
 n_layers = 6
 dropout = 0.2
 tokens = Tokenization()
+max_new_tokens = 500
 text = tokens.text
-vocab_size = len(set(text))
+vocab_size = tokens.vocab_size
 
 
 class FeedForward(nn.Module):
@@ -42,7 +44,7 @@ class Block(nn.Module):
         self.sa = MultiHeadAttension(n_heads,head_size)
         self.ffwd = FeedForward(n_embd)
         self.ln1 = nn.LayerNorm(n_embd)
-        self.ln2 = nn.LayerNorm(n_embd)       
+        self.ln2 = nn.LayerNorm(n_embd)
     
     def forward(self,x):
         x = x + self.sa(self.ln1(x))
@@ -112,11 +114,11 @@ class BigramLanguangeModel(nn.Module):
         return idx
     
     def optimizer(self,epochs,entire_text):
-        optimizer = torch.optim.AdamW(self.parameters(),lr=1e-3) # - lr = 0.003
+        optimizer = torch.optim.AdamW(self.parameters(),lr)
         split = Data_handling()
 
         train,val = split.data_splitting(entire_text)
-
+        loss_list = []
         for epoch in range(epochs):
             if epoch % eval_interval == 0:
                 losses = self.loss_function(train,val)
@@ -124,12 +126,16 @@ class BigramLanguangeModel(nn.Module):
             xb,yb = split.get_batch(train,batch_size,block_size)
 
             logits,loss = self(xb,yb)
+            loss_list.append(loss.item())
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
 
         idx = torch.zeros((1, 1), dtype=torch.long)
-        decoded_text = Tokenization().decoding(self.generate(idx, max_new_tokens=200)[0].tolist())
+        decoded_text = Tokenization().decoding(self.generate(idx, max_new_tokens=max_new_tokens)[0].tolist())
+        with open("loss_list.json", "w") as f:
+            json.dump(loss_list, f)
+
         print(decoded_text)
 
 
@@ -165,7 +171,7 @@ class MultiHeadAttension(nn.Module):
 
     def forward(self,x):
         out = torch.cat([h(x) for h in self.heads] , dim=-1)
-        out = self.proj(self.dropout(out))
+        out = self.dropout(self.proj(out))
         return out
 
 def main():
