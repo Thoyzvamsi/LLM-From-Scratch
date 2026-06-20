@@ -6,8 +6,8 @@ from pathlib import Path
 import json
 import time
 
-data_path = "data.txt"
-urls_path = "urls_file.json"
+data_path = "data\data.txt"
+urls_path = "data\urls_file.json"
 api_url = "https://en.wikipedia.org/w/api.php"
 params = {
         "action": "query",

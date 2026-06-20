@@ -2,7 +2,7 @@ import torch
 
 class Tokenization:
     def __init__(self):
-        self.text = open("data.txt",'r').read()
+        self.text = open("data\data.txt",'r').read()
         self.chars = sorted(list(set(self.text)))
         self.vocab_size = len(set(self.text))
 

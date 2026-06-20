@@ -13,13 +13,13 @@ LLM-From-Scratch/
 │   ├── tokenization.py         # Char-level encode/decode
 │   └── data_handling.py        # Train/val split + get_batch
 ├── training/
-│   └── Bigram_model.py         # Full transformer model
+│   └── nanogpt.py         # Full transformer model
 └── README.md
 ```
 
 Run via:
 ```bash
-python -m training.Bigram_model
+python -m training.GPT_model
 ```
 
 ---
@@ -35,7 +35,7 @@ Wikipedia URLs
      ↓
   Data Handling (train/val split → get_batch → (B,T) tensors)
      ↓
-  BigramLanguageModel (transformer forward pass)
+  GPTLanguageModel (transformer forward pass)
      ↓
   Loss (cross_entropy) → AdamW optimizer
 ```
@@ -156,7 +156,7 @@ x = x + self.ffwd(self.ln2(x))  # pre-norm feedforward + residual
 
 ---
 
-### BigramLanguageModel (Full Model)
+### GPTLanguageModel (Full Model)
 
 ```
 token_embedding_table   : nn.Embedding(vocab_size, n_embd)
@@ -234,4 +234,4 @@ scalar loss
 - Crawler (Wikipedia)
 - Char-level tokenization
 - Data handler (split + batch)
-- BigramLanguageModel with full transformer (6 layers, 6 heads, 384 embd)
+- GPTLanguageModel with full transformer (6 layers, 6 heads, 384 embd)
