@@ -7,14 +7,10 @@ from pathlib import Path
 import json
 torch.manual_seed(1337)
 
-# Hyper parameters
 batch_size = 64
 block_size = 256
-max_interations = 5000
 lr = 3e-4
-eval_iters = 100
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-eval_interval = 10
 n_embd = 384
 n_heads = 6
 n_layers = 6
@@ -25,7 +21,9 @@ text = tokens.text
 vocab_size = tokens.vocab_size
 weights_path = 'training\weights_optimizer\model_weights.pt'
 optimizer_path = 'training\weights_optimizer\optimizer_state.pt'
-
+max_interations = 5
+eval_iters = 100
+eval_interval = 10
 
 class GPTLanguangeModel(nn.Module):
     def __init__(self):
@@ -70,10 +68,10 @@ class GPTLanguangeModel(nn.Module):
 
         self.train()
         return out
-            
     
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens):
+    def generate(self, idx):
+        self.load_state_dict(torch.load(weights_path,map_location=device))
         idx = idx.to(device)
         for _ in range(max_new_tokens):
             idx_cond = idx[:,-block_size:]
@@ -82,8 +80,9 @@ class GPTLanguangeModel(nn.Module):
             probs = F.softmax(logits,dim=-1)
             idx_next = torch.multinomial(probs,num_samples=1)
             idx = torch.cat((idx,idx_next),dim=1).to(device)
-        return idx
-    
+        result = tokens.decoding(idx[0].tolist())
+        return result
+            
     def optimizer(self,epochs,entire_text):
         if Path(weights_path).exists():
             # Reloading the weights and opimizer state
@@ -115,7 +114,8 @@ class GPTLanguangeModel(nn.Module):
         torch.save(optimizer.state_dict(), optimizer_path)
 
         idx = torch.zeros((1, 1), dtype=torch.long)
-        decoded_text = Tokenization().decoding(self.generate(idx, max_new_tokens=max_new_tokens)[0].tolist())
+        decoded_text = self.generate(idx)
+
         with open("data\loss_list.json", "w") as f:
             json.dump(loss_list, f)
 
@@ -160,8 +160,8 @@ class Head(nn.Module):
     def forward(self,x):
         B,T,C = x.shape
         q = self.query(x) # (B,T,C)
-        k = self.key(x) # (B,T,C)
-        v = self.value(x) # (B,T,C)
+        k = self.key(x) 
+        v = self.value(x) 
         wei = q @ k.transpose(-2,-1) * (C // n_heads) ** -0.5 # (B,T,C) @ (B,C,T) = # (B,T,T)
         wei = wei.masked_fill(self.tril[:T,:T] == 0 ,float('-inf')) #
         wei = F.softmax(wei,dim=-1)

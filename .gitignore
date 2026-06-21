@@ -1,4 +1,5 @@
 *.txt
 *.ipynb
 *.json
-*.pt
+*.png
+__pycache__/
