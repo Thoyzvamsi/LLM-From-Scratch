@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from data_pipeline.data_handling import Data_handling
-from data_pipeline.tokenization import TokenizerV1
+from data_pipeline.tokenization import Tokenization
 import torch.nn.functional as F
 from pathlib import Path
 import json
@@ -15,7 +15,8 @@ n_embd = 384
 n_heads = 6
 n_layers = 6
 dropout = 0.2
-tokens = TokenizerV1()
+tokens = Tokenization()
+tokens.train()
 max_new_tokens = 500
 text = tokens.text
 vocab_size = tokens.vocab_size
@@ -80,7 +81,7 @@ class GPTLanguangeModel(nn.Module):
             probs = F.softmax(logits,dim=-1)
             idx_next = torch.multinomial(probs,num_samples=1)
             idx = torch.cat((idx,idx_next),dim=1).to(device)
-        result = tokens.decoding(idx[0].tolist())
+        result = tokens.decode(idx[0].tolist())
         return result
             
     def optimizer(self,epochs,entire_text):
@@ -185,7 +186,7 @@ class FeedForward(nn.Module):
 
 
 def main():
-    encoded_text = tokens.encoding(text).to(device) # Tokenizes the entire file
+    encoded_text = tokens.encode(text).to(device) # Tokenizes the entire file
     print(f"encoded_text length: {len(encoded_text)}")
 
     m = GPTLanguangeModel().to(device)

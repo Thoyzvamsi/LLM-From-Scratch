@@ -7,7 +7,7 @@ import json
 import time
 
 data_path = "data\data.txt"
-urls_path = "data\urls_file.json"
+urls_path = r"data\urls_file.json"
 api_url = "https://en.wikipedia.org/w/api.php"
 params = {
         "action": "query",
@@ -18,7 +18,7 @@ params = {
     }
 
 # Enter the number of articles multiplies with 10*10
-num = 10
+num = 500
 headers = {
         "User-Agent": "Kairo_Scrapper/1.0 (learning project)"
     }

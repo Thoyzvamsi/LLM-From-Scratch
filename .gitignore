@@ -2,4 +2,5 @@
 *.ipynb
 *.json
 *.png
+*.pt
 __pycache__/
