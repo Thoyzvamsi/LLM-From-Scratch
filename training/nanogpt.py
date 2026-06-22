@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from data_pipeline.data_handling import Data_handling
-from data_pipeline.tokenization import Tokenization
+from data_pipeline.tokenization import TokenizerV1
 import torch.nn.functional as F
 from pathlib import Path
 import json
@@ -15,7 +15,7 @@ n_embd = 384
 n_heads = 6
 n_layers = 6
 dropout = 0.2
-tokens = Tokenization()
+tokens = TokenizerV1()
 max_new_tokens = 500
 text = tokens.text
 vocab_size = tokens.vocab_size
