@@ -6,6 +6,8 @@ from pathlib import Path
 import json
 import time
 
+# --- Basic web scrapper for Text data in Wikipedia articles ---
+
 data_path = "data\data.txt"
 urls_path = r"data\urls_file.json"
 api_url = "https://en.wikipedia.org/w/api.php"
@@ -17,36 +19,42 @@ params = {
         "format": "json"
     }
 
-# Enter the number of articles multiplies with 10*10
-num = 500
+# Enter the number of articles multiplies with 10
+number_of_articles = 50
 headers = {
         "User-Agent": "Kairo_Scrapper/1.0 (learning project)"
     }
 
- # --- Basic web scrapper for Text data in Wikipedia articles ---
 
 class Crawler:
-    def __init__(self ,file_urls):
-        self.crawled = set(file_urls)
-        self.headers = headers 
-        
-
     def crawler(self,current_url):
-        try:
-            html = requests.get(current_url, headers=headers).text
-        except Exception:
-            print(f"Error in {Exception}")
+        """ 
+            Opening and rewritting it every time because when ever requests 
+            are out of limit the urls already crawled will get stored 
 
-        self.crawled.add(current_url)  
-        # Scrapes the data
-        self.scrapper(current_url)
-
-        return list(self.crawled)
-    
+        """
+        with open(urls_path,"r") as f:
+            file_urls = json.load(f)
         
+        file_urls = set(file_urls)
+        
+        if current_url in file_urls:
+            print("Already crawled")
+        else:
+            file_urls.add(current_url)  
+            # Scrapes the data
+            self.scrapper(current_url)
+
+            with open(urls_path, "w") as f:
+                json.dump(list(file_urls), f, indent=4)
+
+
     def scrapper(self,url):
         # --- It appends the text data to data.txt file ---
-        html = requests.get(url,headers=headers).text
+        try:
+            html = requests.get(url, headers=headers).text
+        except Exception:
+            print(f"Error {Exception}")
 
         soup = bs(html,"html.parser")
         content = soup.find("div", class_="mw-parser-output")
@@ -75,22 +83,18 @@ class Crawler:
 
 def main():
     urls = []
-    if not Path(urls_path).exists():
+    if not Path(urls_path).exists():  # Create the file if doesn't Exits
         with open(urls_path, "w") as f:
             json.dump([], f)
     
-    with open(urls_path,"r") as f:
-        file_urls = json.load(f)
-    
-    Crawl = Crawler(file_urls)
+    Crawl = Crawler()
 
-    for i in range(num):
+    for i in range(number_of_articles):
         response = requests.get(
             api_url,
             params=params,
             headers=headers
         )
-        print(response.status_code)
         data = response.json()
 
         for article in data["query"]["random"]:
@@ -99,18 +103,12 @@ def main():
             print("Found article:", url)
             urls.append(url)
 
-        if i % 10 == 0:
-            time.sleep(5)
+        if i % 10 == 0: # gives small breathing window for requests
+            time.sleep(2)
 
     for url_in_list in urls:
-        # checks if Already crawled 
-        if url_in_list in file_urls:
-            continue
-        crawled_urls = Crawl.crawler(url_in_list)
+        Crawl.crawler(url_in_list)
 
-    with open(urls_path, "w") as f:
-        json.dump(list(crawled_urls), f, indent=4)
-    
 
 if __name__ == "__main__":
     main()
