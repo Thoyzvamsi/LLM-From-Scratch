@@ -1,12 +1,12 @@
 import torch
-from data_pipeline.tokenization import TokenizerV1
+from Tokenization.tokenization import Tokenization
 from training.nanogpt import GPTLanguangeModel
 import training.nanogpt as nanogpt
 
-"""  Just a sample for testing  """
+"""  Just a simple ChatBot for testing  """
 
 device = nanogpt.device
-tokens = TokenizerV1()
+tokens = Tokenization()
 
 model = GPTLanguangeModel().to(device)
 model.load_state_dict(torch.load(nanogpt.weights_path,map_location=device))

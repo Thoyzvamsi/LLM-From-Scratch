@@ -1,4 +1,3 @@
-import torch
 import pickle
 
 class Traintokeinzer:
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     tok = Traintokeinzer()
     tok.train()
 
-    with open("tokenizer.pkl", "wb") as f:
+    with open(r"data\tokenizer.pkl", "wb") as f:
         pickle.dump(
             {
                 "vocab_size": tok.vocab_size,
@@ -59,10 +58,13 @@ if __name__ == "__main__":
 
     print("Tokenizer saved!")
 
+
 '''   
 steps to run :
-1. Run: python train_tokenizer.py
+1. Run: python -m Tokenization.train_tokenizer
+
 This does:
+
 train()
   ↓
 creates merges
@@ -71,5 +73,6 @@ creates vocab
   ↓
 saves tokenizer.pkl
 2. then we can use Tokenization
+
 '''
  

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from data_pipeline.data_handling import Data_handling
-from data_pipeline.tokenization import Tokenization
+from Tokenization.tokenization import Tokenization
 import torch.nn.functional as F
 from pathlib import Path
 import json
@@ -16,13 +16,12 @@ n_heads = 6
 n_layers = 6
 dropout = 0.2
 tokens = Tokenization()
-tokens.train()
 max_new_tokens = 500
 text = tokens.text
 vocab_size = tokens.vocab_size
-weights_path = 'training\weights_optimizer\model_weights.pt'
-optimizer_path = 'training\weights_optimizer\optimizer_state.pt'
-max_interations = 5
+weights_path = 'training\weights_optimizer_states\model_weights.pt'
+optimizer_path = 'training\weights_optimizer_states\optimizer_state.pt'
+max_interations = 100
 eval_iters = 100
 eval_interval = 10
 
@@ -38,8 +37,8 @@ class GPTLanguangeModel(nn.Module):
     def forward(self, idx, targets=None):
         B ,T = idx.shape
         tok_embd = self.token_embedding_table(idx) # (B,T,C)
-        pos_embd = self.position_embedding_table(torch.arange(T,device=device))
-        x = tok_embd + pos_embd
+        pos_embd = self.position_embedding_table(torch.arange(T,device=device)) 
+        x = tok_embd + pos_embd # To know the position of token we add position number
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.lm_head(x) # (B, T, Vocab_size)
@@ -75,7 +74,7 @@ class GPTLanguangeModel(nn.Module):
         self.load_state_dict(torch.load(weights_path,map_location=device))
         idx = idx.to(device)
         for _ in range(max_new_tokens):
-            idx_cond = idx[:,-block_size:]
+            idx_cond = idx[:,-block_size:] # has the context of last block_size tokens
             logits ,loss = self(idx_cond)
             logits = logits[:,-1,:]
             probs = F.softmax(logits,dim=-1)
@@ -86,7 +85,7 @@ class GPTLanguangeModel(nn.Module):
             
     def optimizer(self,epochs,entire_text):
         if Path(weights_path).exists():
-            # Reloading the weights and opimizer state
+            # loads the weights and opimizer state
             self.load_state_dict(torch.load(weights_path,map_location=device))
             optimizer = torch.optim.AdamW(self.parameters(),lr)
             optimizer.load_state_dict(torch.load(optimizer_path, map_location=device))
@@ -132,6 +131,7 @@ class Block(nn.Module):
         self.ln2 = nn.LayerNorm(n_embd)
     
     def forward(self,x):
+        # adding on the top of last values so it can have all the contexts
         x = x + self.sa(self.ln1(x))
         x = x + self.ffwd(self.ln2(x))
         return x
@@ -163,12 +163,15 @@ class Head(nn.Module):
         q = self.query(x) # (B,T,C)
         k = self.key(x) 
         v = self.value(x) 
+        """
         wei = q @ k.transpose(-2,-1) * (C // n_heads) ** -0.5 # (B,T,C) @ (B,C,T) = # (B,T,T)
-        wei = wei.masked_fill(self.tril[:T,:T] == 0 ,float('-inf')) #
+        wei = wei.masked_fill(self.tril[:T,:T] == 0 ,float('-inf'))
         wei = F.softmax(wei,dim=-1)
         wei = self.dropout(wei)
         out = wei @ v # (B,T,T) @ (B,T,C) = # (B,T,C)
+        """
 
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
         return out
     
 class FeedForward(nn.Module):
@@ -190,6 +193,7 @@ def main():
     print(f"encoded_text length: {len(encoded_text)}")
 
     m = GPTLanguangeModel().to(device)
+    m = torch.compile(m, mode='max-autotune')
 
     m.optimizer(max_interations,entire_text=encoded_text)
 

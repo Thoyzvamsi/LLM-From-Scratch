@@ -3,4 +3,5 @@
 *.json
 *.png
 *.pt
+*.pkl
 __pycache__/

@@ -1,6 +1,6 @@
 # NanoGPT — LLM From Scratch
 > Built following Andrej Karpathy's NanoGPT series. Character-level transformer trained on Wikipedia text.
-
+> Many changes are made please wait for Final Readme
 ---
 
 ## Project Structure
