@@ -37,7 +37,7 @@ class GPTLanguangeModel(nn.Module):
     def forward(self, idx, targets=None):
         B ,T = idx.shape
         tok_embd = self.token_embedding_table(idx) # (B,T,C)
-        pos_embd = self.position_embedding_table(torch.arange(T,device=device)) 
+        pos_embd = self.position_embedding_table(torch.arange(T,device=device))
         x = tok_embd + pos_embd # To know the position of token we add position number
         x = self.blocks(x)
         x = self.ln_f(x)
